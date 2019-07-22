@@ -7,6 +7,8 @@ tags:
 categories: 算法
 ---
 
+<!-- toc -->
+
 #### 先序遍历递归实现
 ```java
 public List<Integer> preOrder(TreeNode root) {

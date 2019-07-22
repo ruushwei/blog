@@ -6,7 +6,7 @@ tags:
 - 算法
 categories: 算法
 ---
-
+<!-- toc -->
 
 #### 二叉树每层选一个数乘积最大 （amazon）
 

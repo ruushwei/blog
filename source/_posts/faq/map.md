@@ -6,7 +6,7 @@ tags:
 - map
 categories: java
 ---
-
+<!-- toc -->
 
 #### 讲下hashmap，concurrenthashmap（mi）
 
