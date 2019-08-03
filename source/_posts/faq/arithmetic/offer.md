@@ -134,4 +134,36 @@ public class Solution {
 ```
 
 
+#### power double的n次方
+使用递归，时间复杂度O(logn)
 
+当n为偶数，a^n =（a^n/2）*（a^n/2）   
+当n为奇数，a^n = a^[(n-1)/2] * a^[(n-1)/2] * a
+
+```java
+public class Solution {
+    public double Power(double base, int exponent) {
+        if(base == 0) {
+            return 0;
+        }
+        int positiveExponent = Math.abs(exponent);
+        double result = PowerPositiveExponent(base, positiveExponent);
+        return exponent < 0 ? 1 / result : result;
+    }
+    
+    private double PowerPositiveExponent(double base, int n){
+        if(n == 0) {
+            return 1.0;
+        }
+        if(n == 1) {
+            return base;
+        }
+        double result = PowerPositiveExponent(base, n >> 1);
+        result *= result;
+        if((n & 1) == 1) {
+            result *= base;
+        }
+        return result;
+    }
+}
+```
