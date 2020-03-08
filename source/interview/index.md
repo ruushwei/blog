@@ -238,6 +238,10 @@ NIO的主要事件有几个：读就绪、写就绪、有新连接到来。
       并发： 并发控制使用 synchronized 和 CAS
       线程安全: CAS和synchronized来保证并发安全, synchronized只锁定当前链表或红黑二叉树的首节点, 只要hash不冲突，就不会产生并发，效率又提升N倍
 
+loadFactor和threshold的关系?   
+
+HashMap中size表示当前共有多少个KV对，capacity表示当前HashMap的容量是多少，默认值是16，每次扩容都是成倍的。loadFactor是装载因子，当Map中元素个数超过loadFactor* capacity的值时，会触发扩容。loadFactor* capacity可以用threshold表示。  
+
 ### - 倒排索引原理 
 
 正排索引：文档id到单词的关联关系
