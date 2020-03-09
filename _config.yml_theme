@@ -146,8 +146,9 @@ widgets:
         position: left
         # Links to be shown in the links widget
         links:
-            Hexo: 'https://hexo.io'
-            PPOffice: 'https://github.com/ppoffice'
+            黄小豆的博客: 'https://jacobchang.cn/'
+            袁琼琼的博客: 'http://yuanqiongqiong.cn/'
+            付佳龙的博客: 'http://fujialong1996.github.io/'
     -
         # Widget name
         type: category
