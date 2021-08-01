@@ -210,6 +210,7 @@ ReentrantLock这类自定义同步器自己实现了获取锁和释放锁的方�
 白话：AQS是jdk提供的一个同步器，可以很方便的生成自定义同步器。AQS内部使用一个volatile的state来表示同步状态，通过一个FIFO队列来做多线程获取资源的排队操作，AQS通过CAS来做state变量的修改。实现AQS只要实现其中判断获取锁和释放锁的方法即可，AQS内部会去做队列入队出队等复杂逻辑处理。使用AQS实现的同步器有ReentrantLock，Semaphore，CountDownLatch。
 
 ### - CountDownLatch、Semaphore、CyclicBarrier含义及实现原理
+
 CountDownLatch   
 一个或多个线程等待其他线程完成一些列操作
 CountDownLatch是一个同步辅助类，当CountDownLatch类中的计数器减少为0之前所有调用await方法的线程都会被阻塞，如果计数器减少为0，则所有线程被唤醒继续运行。
@@ -221,13 +222,18 @@ CountDownLatch是一个同步辅助类，当CountDownLatch类中的计数器减�
 CyclicBarrier   
 多个线程相互等待，直到到达同一个同步点，再继续一起执行。CyclicBarrier适用于多个线程有固定的多步需要执行，线程间互相等待，当都执行完了，在一起执行下一步。
 
-CyclicBarrier是全部线程一起去执行下一步，CountDownLatch是只有当时等待的线程去执行下一步.
+CyclicBarrier和CountDownLatch的异同   
+CountDownLatch 是一次性的，CyclicBarrier 是可循环利用的
+CountDownLatch 参与的线程的职责是不一样的，有的在倒计时，有的在等待倒计时结束。
+CyclicBarrier 参与的线程职责是一样的。
 
-CyclicBarrier和CountDownLatch的异同
-
-1.CyclicBarrier和CountDownLatch都可以通过一个条件去控制多个线程，然后在条件满足时做一些操作。CyclicBarrier在条件满足时可以让所有线程都继续运行，而CountDownLatch只能让一开始就在等待的线程去运行。
-
-2.CyclicBarrier可以复用，开启屏障之后count会回归到初始值，可以进行下一次屏障拦截线程。而CountDownLatch只能使用一次，倒计时完毕后count的值不会变化。
+个人理解：
+1. CountDownLatch 是当前线程等着别人做好再开始做。像做饭一样，买好菜。
+   CountDownLatch内部是AQS做的同步，共享模式，共享释放，只有减到0才能获得
+2. Semaphore 是多个线程去获取，有的话就有，没有就等着。 像买房摇号。
+   Semaphore 内部是AQS做的同步，非0就可获得，0就不行了
+3. CyclicBarrier 是各个线程都达到某个预设点的时候， 可以执行一段逻辑，然后打开所有线程的限制。 像赛马.
+   CyclicBarrier 底层是依赖Reentrantlock保证同步 和 一个condition来协调多线程的状态，其实也是AQS
 
 ## java异步
 
