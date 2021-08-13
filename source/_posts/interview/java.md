@@ -32,16 +32,21 @@ HashMap: (*重要必考，后面单独问*)
 3.线程安全：使用了 两个 ReentrantLock 和 两个 condition，putLock是插入锁，takeLock是取出锁；notEmpty是“非空条件”，notFull是“未满条件”。通过它们对链表进行并发控制   
 4.阻塞队列：先进先出。当取出元素的时候，若队列为空，wait直到队列非空（notEmpty）；当存储元素的时候，若队列满，wait直到队列有空闲（notFull）
 
-注：   
+**PriorityBlockingQueue**
 PriorityBlockingQueue(具有优先级的无限阻塞队列). 是一个支持优先级的无界阻塞队列，内部结构是数组实现的二叉堆
+线程安全的排序。
 
-SynchronousQueue (SynchronousQueue是一个不存储元素的阻塞队列。每一个put操作必须等待一个take操作，否则不能继续添加元素),
-每一个线程的入队操作必须等待另一个线程相应的出队（take）操作，相反，每一个线程的出队操作必须等待另一个线程相应的入队操作
+**SynchronousQueue**
+SynchronousQueue (SynchronousQueue是一个不存储元素的阻塞队列。每一个put操作必须等待一个take操作，否则不能继续添加元素), 每一个线程的入队操作必须等待另一个线程相应的出队（take）操作，相反，每一个线程的出队操作必须等待另一个线程相应的入队操作。
 
-生产者往满的队列里添加元素时会阻塞主生产者，当消息者消费了一个队列中的元素后，会通知生产者当前队列可用
+Executors.newCachedThreadPool() 使用的SynchronousQueue， 实际就不想往队列里放元素，就是想有多少任务就生成多少线程去做。线程拉满，不做任务堆积。 但newCachedThreadPool(). maxThreadSize 是Integer.MAX_VALUE, 容易内存溢出。
 
-白话: ArrayBlockingQueue和LinkedBlockingQueue都是线程安全的阻塞队列。 ArrayBlockingQueue底层是数组实现，是有界的队列，线程安全是使用一个 ReentrantLock 和 两个 condition实现的。 LinkedBlockingQueue底层是单向链表实现，是可有界可无界的队列，线程安全是使用两个 ReentrantLock 和 两个 condition实现的。
+**白话**
+ArrayBlockingQueue和LinkedBlockingQueue都是线程安全的阻塞队列。 ArrayBlockingQueue底层是数组实现，是有界的队列，线程安全是使用一个 ReentrantLock 和 两个 condition实现的。 LinkedBlockingQueue底层是单向链表实现，是可有界可无界的队列，线程安全是使用两个 ReentrantLock 和 两个 condition实现的。
 
+为什么ArrayBlockingQueue是一个ReentrantLock，LinkedBlockingQueue是两个？
+ArrayBlockingQueue在插入、取出的时候，都会对index做变更，有并发问题，需要同步处理。 
+LinkedBlockingQueue从队头取出，从队尾插入，链表结构所以两种操作可并行。所以用两个lock, 提升并发能力，还用了一个AtomicInteger count; // 记录总数
 
 ### - 阻塞队列原理
 
@@ -87,13 +92,9 @@ NIO的主要事件有几个：读就绪、写就绪、有新连接到来。
 - 基于block的传输，通常比基于流的传输更高效(buffer)
 - 更高级的IO函数，zero-copy
 - IO多路复用大大提高了Java网络应用的可伸缩性和实用性
-
-个人总结：  
-1.定义，NIO是同步非阻塞式IO, 也叫NEW IO   
-2.原理，采用事件驱动模型，相比于BIO, 一连接一线程，对线程资源有很大的浪费，NIO使用单线程去做事件的轮询，轮询到事件后再交给对应的事件处理器，通常有读写连接事件，    
-3.优点：节省线程资源,单线程处理多任务, 提高系统并发能力和吞吐能力。  
-       JavaNIO使用channel、buffer传输，更高效   
-
+- JavaNIO使用channel、buffer传输，更高效
+  
+白话：nio 的核心在selector，相比于BIO一连接一线程，nio 一线程可以监听多个网络连接的文件描述符，监听处理其中的事件。这样很好的节省了线程资源，会增加服务端的并发能力和吞吐。
 
 ### - 谈谈对hashMap的了解
 
@@ -101,6 +102,24 @@ NIO的主要事件有几个：读就绪、写就绪、有新连接到来。
 加分：HashMap在put时, 经过了两次hash，一个是JDK自带的对对象key的hash，一个是内部扰动函数hash，做高16位与低16位异或，加大散列的效果
 加分：HashMap 的长度为什么是2的幂次方。1. 散列值用之前要对数组长度取模，求桶位(n - 1) & hash 更高效；2. 扩容的时候也可以用 hash值与扩容后的最高位 & 判断节点是在高位还是低位，更高效。
 加分：HashMap 非线程安全，多线程操作导致死循环问题，1.7  并发下头插形成循环链表，1.8 用尾插修复， 但仍可能造成丢失数据。
+
+HashMap.Node<K, V>[] table;
+
+get是怎么做的
+1. hash。 hashcode高低16位异或得到hash值， (h = key.hashCode()) ^ h >>> 16
+2. 根据hash值拿到桶位第一个节点，判断是否可以直接返回
+3. 判断节点中结构类型是树还是链表，树则调用树查询方法，链表则遍历链表比较
+
+put是怎么做的
+1. hash。 hashcode高低16位异或得到hash值， (h = key.hashCode()) ^ h >>> 16
+2. 根据hash值拿第一个桶位的节点，如果为空则新建节点插入
+3. 判断节点结构是树还是链表，树则调用树插入的方法, 链表则添加到表尾，如果链表节点到了8个，则触发treeifyBin() ！如果整体节点数量 > threshold, 则resize()
+
+resize是怎么做的
+1. new HashMap.Node[newCap]，遍历每一个桶位
+2. 如果只有一个节点直接赋到新桶位，新桶位计算方式：e.hash & newCap - 1
+3. 如果节点数据结构为树，则走树的split()
+4. 如果节点数据结构为链表，遍历链表，判断属于新桶还是老桶，通过：e.hash & oldCap(2^n), 通过最高位的0，1值
 
 白话：hashmap是非线程安全的集合。底层是数组+链表，链表长度超过8会转成红黑树。hashmap中table的长度总是2的幂次方，这样可以使用&运算代替取余运算(%)来提高效率，在求桶位和扩容时获取节点新位置在左边还是右边的时候。
 

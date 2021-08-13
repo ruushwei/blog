@@ -1,5 +1,5 @@
 ---
-title: redis11
+title: redis_2021
 date: 2021-07-31 11:10:43
 ---
 
@@ -209,3 +209,7 @@ down-after-millisecond*10 时间的
 
 如果多个回合还没有选出leader sentinel，怎么办？
 选举过程非常快，一般谁先判断出主观下线谁就是leader
+
+### - redis高可用
+
+高可用（主从、哨兵、集群）

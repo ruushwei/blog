@@ -15,9 +15,9 @@ date: 2019-09-09 11:10:43
 
 [mysql](../2021/07/29/interview/mysql "mysql")
 
-[redis](../2021/07/29/interview/redis "redis")
+[redis](../2021/07/31/interview/redis "redis")
 
-[kafka](../2021/07/29/interview/kafka "kafka")
+[kafka](../2021/08/01/interview/kafka "kafka")
 
 [design](../2021/07/29/interview/design "design")
 

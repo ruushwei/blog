@@ -27,6 +27,26 @@ BlockingQueue(接口)
       并发： 并发控制使用 synchronized 和 CAS
       线程安全: CAS和synchronized来保证并发安全, synchronized只锁定当前链表或红黑二叉树的首节点, 只要hash不冲突，就不会产生并发，效率又提升N倍
 
+get是怎么做的
+1. hash。 hashcode高低16位异或得到hash值，(h ^ h >>> 16) & 2147483647;
+2. 桶位节点就是要找节点，直接返回该节点
+3. 如果节点hash值小于0，说明是已迁移的节点或者红黑树bin，调用node.find(), TreeBin 和 ForwardingNode 都继承Node重写find方法
+4. 剩下情况就是链表，遍历判断是否节点存在
+
+注：ForwordingNode的hash值为-1，红黑树的根结点的hash值为-2。 TreeBin 和 ForwardingNode 都继承Node重写find方法
+
+put是怎么做的
+1. hash。 hashcode高低16位异或得到hash值，(h ^ h >>> 16) & 2147483647;
+2. 桶位为空，cas设置新node，U.compareAndSetObject
+3. 其他操作，加synchronized锁住头结点，如果是树，调用添加到树中方法，如果是链表，添加到尾端。
+4. 判断是否到了8个，链表变树； 判断size是否到了阈值，触发扩容。size总数增加cas (U.compareAndSetLong)
+
+resize是怎么做的
+1. newTable, 大小是旧表的2倍
+2. 头结点加锁，不允许其他线程更改，但可get，
+3. 判断桶中各节点位置，复制一模一样的节点到新表（非直接移过去，还要get），到新表可能在旧桶位也可能在新桶位
+4. 分配结束之后将头结点设置为fwd节点（指向新表）
+
 白话：线程安全的map。1.7版本是使用分段锁实现的线程安全，segment上加锁，在构建的时候可以设置大小，默认是16，就是并发度默认只有16. 1.8版本的线程安全是用synchronized+cas实现的，使用synchronized锁住链表或红黑树的头结点，使用cas来进行size++和首个节点入桶。1.8的并发度是随着桶位增加而增加的，所以并发效率会随扩容提升很多倍。
 
 
@@ -233,7 +253,7 @@ CyclicBarrier 参与的线程职责是一样的。
 2. Semaphore 是多个线程去获取，有的话就有，没有就等着。 像买房摇号。
    Semaphore 内部是AQS做的同步，非0就可获得，0就不行了
 3. CyclicBarrier 是各个线程都达到某个预设点的时候， 可以执行一段逻辑，然后打开所有线程的限制。 像赛马.
-   CyclicBarrier 底层是依赖Reentrantlock保证同步 和 一个condition来协调多线程的状态，其实也是AQS
+   CyclicBarrier 底层是依赖Reentrantlock保证同步 和 一个condition 来阻塞和放开早到达的多个线程，其实也是AQS
 
 ## java异步
 
