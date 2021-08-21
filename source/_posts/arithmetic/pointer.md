@@ -36,7 +36,6 @@ public class Solution {
 ```java
 public ArrayList<ArrayList<integer> > FindContinuousSequence(int sum) {
 	ArrayList<ArrayList<integer>> p=new ArrayList<ArrayList<integer>>();
-	//有两个指针，一个指向头，一个指向尾
 	//因为是连续的，构成等差数列，用等差数列的求和公式
 	int low=1,hight=2;
 	while(low<hight) {
