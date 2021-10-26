@@ -5,7 +5,6 @@ date: 2021-07-29 11:10:43
 
 <!-- toc -->
 
-
 ### - Java并发容器有哪些
 
 concurrentHashmap:   线程安全的HashMap, Node数组+链表 + 红黑树  
@@ -17,8 +16,47 @@ BlockingQueue(接口)
 2 LinkedBlockingQueue: 单向链表  
 3 PriorityBlockingQueue: 支持优先级的无界阻塞队列 
 
-### - 谈谈对ConcurrentHashMap的了解
+### - ArrayBlockingQueue和LinkedBlockingQueue的实现原理
 
+**ArrayBlockingQueue是object数组实现的线程安全的有界阻塞队列** 
+1.数组实现：使用数组实现循环队列    
+2.有界：内部为数组实现，一旦创建完成，数组的长度不能再改变    
+3.线程安全：使用了 ReentrantLock 和 两个 condition(notEmpty, notFull) 来保证线程安全   
+4.阻塞队列：先进先出。当取出元素的时候，若队列为空，wait直到队列非空（notEmpty）；当存储元素的时候，若队列满，wait直到队列有空闲（notFull）
+
+**LinkedBlockingQueue是一个单向链表实现的阻塞队列** 
+1.链表实现： head是链表的表头， last是链表的表尾。取出数据时，都是从表头head处取出，出队； 新增数据时，都是从表尾last处插入，入队。   
+2.可有界可无界：可以在创建时指定容量大小，防止队列过度膨胀。如果未指定队列容量，默认容量大小为Integer.MAX_VALUE  
+3.线程安全：使用了 两个 ReentrantLock 和 两个 condition，putLock是插入锁，takeLock是取出锁；notEmpty是“非空条件”，notFull是“未满条件”。通过它们对链表进行并发控制   
+4.阻塞队列：先进先出。当取出元素的时候，若队列为空，wait直到队列非空（notEmpty）；当存储元素的时候，若队列满，wait直到队列有空闲（notFull）
+
+**PriorityBlockingQueue**
+PriorityBlockingQueue(具有优先级的无限阻塞队列). 是一个支持优先级的无界阻塞队列，内部结构是数组实现的二叉堆
+线程安全的排序。其数据结构是二叉堆(分为最大堆和最小堆)
+二叉堆本质是一颗二叉树：
+二叉堆是一种特殊的堆，二叉堆是完全二叉树或者是近似完全二叉树
+如果节点在数组中的位置是i(i是节点在数组中的下标), 则i节点对应的子节点在数组中的位置分别是 2i + 1 和 2i +2， 同时i的父节点的位置为 (i-1)/2（i从0 开始）
+通过一次上浮可以把符合条件的元素放到堆顶，反复进行上浮操作，可以将整个堆进行有序化。下沉操作可以把替代堆顶后的元素放到该放的位置，同时堆顶元素是符合条件的元素（前提是二叉堆已经是有序的）
+
+**SynchronousQueue**
+SynchronousQueue (SynchronousQueue是一个不存储元素的阻塞队列。每一个put操作必须等待一个take操作，否则不能继续添加元素), 每一个线程的入队操作必须等待另一个线程相应的出队（take）操作，相反，每一个线程的出队操作必须等待另一个线程相应的入队操作。
+
+Executors.newCachedThreadPool() 使用的SynchronousQueue， 实际就不想往队列里放元素，就是想有多少任务就生成多少线程去做。线程拉满，不做任务堆积。 但newCachedThreadPool(). maxThreadSize 是Integer.MAX_VALUE, 容易内存溢出。
+
+**白话**
+ArrayBlockingQueue和LinkedBlockingQueue都是线程安全的阻塞队列。 ArrayBlockingQueue底层是数组实现，是有界的队列，线程安全是使用一个 ReentrantLock 和 两个 condition实现的。 LinkedBlockingQueue底层是单向链表实现，是可有界可无界的队列，线程安全是使用两个 ReentrantLock 和 两个 condition实现的。
+
+为什么ArrayBlockingQueue是一个ReentrantLock，LinkedBlockingQueue是两个？
+ArrayBlockingQueue在插入、取出的时候，都会对index做变更，有并发问题，需要同步处理。 
+LinkedBlockingQueue从队头取出，从队尾插入，链表结构所以两种操作可并行。所以用两个lock, 提升并发能力，还用了一个AtomicInteger count; // 记录总数
+
+### - 阻塞队列原理
+核心思想就是，何时阻塞：空不让你取，满不让你加。
+进行操作的方法，在操作前，都必须加锁。
+主要就是一个 ReentrantLock，和两个由它创建的 Condition：notFull、notEmpty。
+然后，在take、put、enqueue、dequeue 四个方法里面对这两个信号条件进行控制。
+
+### - 谈谈对ConcurrentHashMap的了解
 1.7   结构： 分段的数组+链表; 
       并发：分段锁，锁一段数组 segment，默认有16个segment, 并发度只有默认是16
       线程安全: segment上锁，继承ReentrantLock可重入锁
@@ -49,12 +87,13 @@ resize是怎么做的
 
 白话：线程安全的map。1.7版本是使用分段锁实现的线程安全，segment上加锁，在构建的时候可以设置大小，默认是16，就是并发度默认只有16. 1.8版本的线程安全是用synchronized+cas实现的，使用synchronized锁住链表或红黑树的头结点，使用cas来进行size++和首个节点入桶。1.8的并发度是随着桶位增加而增加的，所以并发效率会随扩容提升很多倍。
 
-
 ### - 谈谈对Java内存模型的了解
+总结：
+jmm定义了线程间通信的方式，jmm使用共享内存的方式通信，jmm规范多线程下的执行顺序和多线程下共享变量的可见性问题，规定了一套happens-before规则。
 
-
-jmm是为了解决线程间通信问题，线程间通信通常有两种解决方法，共享内存或通知机制， jmm使用了共享内存的方式，jmm定义了一套happens-before规则来规范多线程下的执行顺序和多线程下变量的可见性问题，happens-before规则底层是通过禁止部分编译器和处理器的指令重排序实现的，happens-before有八个，分别是
-
+jmm是为了解决线程间通信问题，线程间通信通常有两种解决方法，共享内存或通知机制， jmm使用了共享内存的方式。
+jmm定义了一套happens-before规则来规范多线程下的执行顺序和多线程下变量的可见性问题，规则底层是通过禁止部分编译器和处理器的指令重排序实现。
+happens-before有八个，分别是：
 程序顺序规则：一个线程中的每个操作，发生在该线程中任意后续操作之前    
 监视器锁规则：对一个锁的解锁，发生在随后对这个锁的加锁之前     
 volatile变量规则：对一个volatile域的写，发生在任意后续对这个volatile域的读之前   
@@ -64,27 +103,8 @@ volatile变量规则：对一个volatile域的写，发生在任意后续对这�
 线程终结规则：线程中所有的操作都先行发生于线程的终止检测，我们可以通过Thread.join()方法结束、Thread.isAlive()的返回值手段检测到线程已经终止执行；    
 对象终结规则：一个对象的初始化完成先行发生于他的finalize()方法的开始； 
 
-定义：JMM是什么，Java内存模型是要解决什么问题:    
-JMM通过happens-before规则简单易懂让Java程序员理解JMM提供的内存可见性保证。
-
-Java内存模型是在讲线程间通信机制。 线程间通信有两种：共享内存和消息传递.     
-Java采用的是共享内存的模型实现的线程之间通信, 隐式进行, 对程序员透明。    
-JMM通过控制主内存与每个线程的本地内存之间的交互，决定一个线程对共享变量的写入何时对另一个线程可见。解决多线程之间可见性问题。   
-（本地内存是JMM的一个抽象概念，并不真实存在。它涵盖了缓存，写缓冲区、寄存器以及其他的硬件和编译器优化）
-
-怎么做，怎么实现共享内存模型的通信: 
-对于Java程序员来说，happens-before规则简单易懂，它避免Java程序员为了理解JMM提供的内存可见性保证而去学习复杂的重排序规则以及这些规则的具体实现方法。  
-一个happens-before规则对应于一个或多个编译器和处理器重排序规则. 
-1. happens-before规则
-2. 禁止指令重排序（根据happens-before规则）
- - 编译器重排序，JMM会禁止特定类型的编译器重排序。   
- - 处理器重排序，JMM的处理重排序规则会要求java编译器在生成指令序列时，插入特定类型的内存屏障指令，通过内存屏障指令来禁止特定类型的处理器重排序。为程序员提供一致的内存可见性保证。
-
-jmm定义了线程间通信的方式，jmm使用共享内存的方式通信，jmm规范多线程下的执行顺序和多线程下共享变量的可见性问题，规定了一套happens-before规则。
-
 ### - volatile原理
-
-1. Volatile的特征   
+1. volatile的特征   
 A、禁止指令重排（有例外）   
 B、可见性
 2. Volatile的内存语义  
@@ -95,10 +115,7 @@ B、可见性
 
 白话：volatile有两个特性，可见性和禁止指令重排序。可见性，当一个线程更新volatile变量后，这个变量会立即写入到主内存中，其他线程读取时会从主内存中读取最新的值。禁止指令重排序，两个对volatile变量的操作不能被重排序，底层是通过内存屏障实现的。
 
-通过读写前后的内存屏障，达到 1.禁止指令重排序，2.
-
 ### - java的乐观锁CAS锁原理
-
 CAS英文全称Compare and Swap，直白翻译过来即比较并交换，是一种无锁算法，在不使用锁即没有线程阻塞下实现多线程之间的变量同步，基于处理器的读-改-写原子指令来操作数据，可以保证数据在并发操作下的一致性。
 
 CAS包含三个操作数：内存位置V，预期值A，写入的新值B。在执行数据操作时，当且仅当V的值等于A时，CAS才会通过原子操作方式用新值B来更新V的值（无论操作是否成功都会返回）。
@@ -130,41 +147,84 @@ JDK从1.5开始提供了AtomicStampedReference类来解决ABA问题，具体操�
 2.循环时间长开销大。CAS操作如果长时间不成功，会导致其一直自旋，给CPU带来非常大的开销。    
 3.只能保证一个共享变量的原子操作。对一个共享变量执行操作时，CAS能够保证原子操作，但是对多个共享变量操作时，CAS是无法保证操作的原子性的。     
 Java从1.5开始JDK提供了AtomicReference类来保证引用对象之间的原子性，可以把多个变量放在一个对象里来进行CAS操作。   
-    
+
 白话：CAS是Compare and Swap，比较并交换，是一种乐观锁实现线程安全的方式，更加轻量。底层是通过cpu的原子指令实现的比较并替换。使用的时候参数有内存位置，预期值，写入的新值，当通过内存位置拿到的值和预期值相等时，就用新值进行替换，整个操作是原子的，cpu指令保证。
+
+### - sychronized使用及原理
+- 修饰实例方法：作用于当前对象实例加锁，进入同步代码前要获得 当前对象实例的锁
+- 修饰静态方法: 也就是给当前类加锁，会作用于类的所有对象实例 ，进入同步代码前要获得 当前 class 的锁。
+- 修饰代码块: 对应的锁则是，传入的synchoronzed的对象实例。
+
+synchronized原理
+对象分为3部分：对象头，对象数据，填充内容。
+对象头又分为：Mark Word，类型指针、数组长度。
+synchronized的锁依赖java对象头, 通过对象头中的mark word 和 monitor实现锁机制。
+mark word主要会记录对象关于锁的信息（偏向锁、轻量锁、重量锁）。Monitor是依赖于底层的操作系统的Mutex Lock（互斥锁）来实现的线程同步。
+
+其中有两个队列 _EntryList和 _WaitSet，它们是用来保存ObjectMonitor对象列表， _owner指向持有ObjectMonitor对象的线程。
+当多个线程访问同步代码时，线程会进入_EntryList区，当线程获取对象的monitor后(对于线程获得锁的优先级，还有待考究)进入 _Owner区并且将 _owner指向获得锁的线程(monitor对象被线程持有)， _count++，其他线程则继续在 _EntryList区等待。若线程调用wait方法，则该线程进入 _WaitSet区等待被唤醒。线程执行完后释放monitor锁并且对ObjectMonitor中的值进行复位。
+
+上面说到synchronized使用的锁都放在对象头里，大概指的就是Mark Word中指向互斥量的指针指向的monitor对象内存地址了。 
+由以上可知为什么Java中每一个对象都可以作为锁对象了。
+
+白话：
+sychronized可以使用在实例方法、静态方法和代码块上。
+synchronized依赖java对象头中的mark word和monitor实现线程同步。mark word会记录对象关于锁的信息（偏向锁、轻量锁、重量锁）。Monitor依赖于底层的操作系统的Mutex Lock（互斥锁）实现的线程同步。
+synchronized有多种锁类型，偏向锁、轻量锁、重量锁。
+偏向锁，通过对比Mark Word里存储的锁偏向的线程ID解决加锁问题，最多执行一次CAS操作。
+升级：当一个线程正持有偏向锁，被另外的线程所访问获取锁失败，偏向锁就会升级为轻量级锁。
+轻量级锁，线程通过线程栈帧与对象mark word之间的多次CAS操作和自旋，尝试获取轻量级锁。
+升级：若当前只有一个等待线程，则该线程通过自旋进行等待。但是当自旋超过一定的次数，或者一个线程在持有锁，一个在自旋，又有第三个来访时，轻量级锁升级为重量级锁。
+重量级锁：是将除了拥有锁的线程以外的线程都阻塞。依赖操作系统的metex lock, 存在用户态和内核态切换，消耗较大
+
+### - 锁升级
+**偏向锁**通过对比Mark Word里存储的锁偏向的线程ID解决加锁问题，避免执行CAS操作。
+升级时机：当持有偏向锁的时候，被另外的线程所访问获取锁失败，偏向锁就会升级为轻量级锁。
+**轻量级锁**是通过用CAS操作和自旋来解决加锁问题，避免线程阻塞和唤醒而影响性能。轻量级锁的获取及释放依赖多次CAS原子指令，而偏向锁只需要在置换ThreadID的时候依赖一次CAS原子指令即可。
+- 先在栈帧中建立一个名为锁记录（Lock Record）的空间，用于存储锁对象目前的Mark Word的拷贝
+* 拷贝对象头中的Mark Word复制到锁记录中。拷贝成功后，虚拟机将使用CAS操作尝试将对象的Mark Word更新为指向Lock Record的指针，并将Lock Record里的owner指针指向对象的Mark Word。
+* 如果这个更新动作成功了，那么这个线程就拥有了该对象的锁，并且对象Mark Word的锁标志位设置为“00”，表示此对象处于轻量级锁定状态。
+升级时机：若当前只有一个等待线程，则该线程通过自旋进行等待。但是当自旋超过一定的次数，或者一个线程在持有锁，一个在自旋，又有第三个来访时，轻量级锁升级为重量级锁。
+**重量级锁**是将除了拥有锁的线程以外的线程都阻塞。依赖操作系统的metex lock, 存在用户态和内核态切换，消耗较大。
+
+### - sychronized缺点
+1. 效率低:锁的释放情况少,试图获得锁时不能设定超时,不能中断一个正在试图获得所得线程。
+2. 使用synchroinzed修饰一个代码块时，如果一个线程获取了对应的锁，并执行改代码块，其他线程只能一直等待。等待获取锁的线程释放锁，但是获取锁的线程执行释放锁只有2种方式（要么是执行完该代码块，正常释放。要么是.线程执行发生异常，JVM自动释放）一旦这个锁被别人获取，如果我还想获取，那么我只能选择等待或阻塞，只得到别的线程释放，如果别人永远不释放锁，那我只能永远等待下去。不能设定超时等待，无法做到响应中断。
+3. 不够灵活（多个线程只是做读写操作，线程直接就发生冲突。）
+4. 非公平。使用synchroinzd，非公平锁使一些线程处于饥饿状态，对于一些线程，可能长期无法抢占到锁。对于某些特定的业务，必须使用公平锁，这时synchronized无法满足要求
+5. 无法知道是否成功获取到锁
+
+白话:
+1. 无有限等待。没有tryLock(带时间参数)
+2. 不可中断。没有lockInterruptibly(调用后一直阻塞到获得锁 但是接受中断信号)
+3. 读写锁不分离。没有读写锁，读读固定互斥，影响并发
+4. 不支持公平锁。
+5. 获取锁无返回值。无法知道线程当前有没有成功获得到锁，没有tryLock的返回值
+6. 无多路通知机制。lock.condition
+
+### - sychronized reentranlock 的区别
+1. 有限等待：需要有一种机制可以不让等待的线程一直无期限地等待下去（比如只等待一定的时间或者能够响应中断），这个是synchronized无法办到，Lock可以办到，由tryLock(带时间参数)实现；
+2. 可中断：使用synchronized时，等待的线程会一直阻塞，一直等待下去，不能够响应中断，而Lock锁机制可以让等待锁的线程响应中断，由lockInterruptibly()实现；
+3. 有返回值：需要一种机制可以知道线程有没有成功获得到锁，这个是synchronized无法办到，Lock可以办到，由tryLock()方式实现；
+4. 公平锁：synchronized中的锁是非公平锁，ReentrantLock默认情况下也是非公平锁，但可以通过构造方法ReentrantLock(true)来要求使用公平锁（底层由Condition的等待队列实现）。
+5. 读写分离，提高多个线程读操作并发效率：需要一种机制来使得多个线程都只是进行读操作时，线程之间不会发生冲突，这个是synchronized无法办到，Lock可以办到。
+6. 可实现选择性多路通知（锁可以绑定多个条件）
 
 ### - sychronized 和 valotile 的区别
 
-1. volatile更轻量，性能更好，但volatile只能用于变量而synchronized关键字可以修饰方法以及代码块  
-2. 多线程访问volatile关键字不会发生阻塞，而synchronized关键字可能会发生阻塞  
-3. volatile关键字能保证数据的可见性，但不能保证数据的原子性 （eg： i++）.synchronized关键字两者都能保证
-4. volatile关键字主要用于解决变量在多个线程之间的可见性，而 synchronized关键字解决的是多个线程之间访问资源的同步性
-
-
-
-### - sychronized reentranlock 的区别
-
-1. synchronized 依赖于 JVM 而 ReentrantLock 依赖于 API
-2. 等待可中断  lock.lockInterruptibly()， 线程可以选择放弃等待，改为处理其他事情
-3. 可实现公平锁
-4. 可实现选择性通知（锁可以绑定多个条件）
+1. 作用范围。volatile更轻量，性能更好，但volatile只能用于变量而synchronized关键字可以修饰方法以及代码块  
+2. 是否阻塞。多线程访问volatile关键字不会发生阻塞，而synchronized关键字可能会发生阻塞  
+3. 是否保证原子性。volatile关键字能保证数据的可见性，但不能保证数据的原子性 （eg： i++）.synchronized关键字两者都能保证
+4. 是否保证同步。volatile关键字主要用于解决变量在多个线程之间的可见性，而 synchronized关键字解决的是多个线程之间访问资源的同步性
 
 ### - 弱引用
-
 强引用
-
 任何被强引用指向的对象都不能被垃圾回收器回收。
-
 软引用
-
 如果有软引用指向这些对象，则只有在内存空间不足时才回收这些对象（回收发生在OutOfMemoryError之前）。
-
 弱引用
-
 如果一个对象只有弱引用指向它，垃圾回收器会立即回收该对象，这是一种急切回收方式。
-
 虚引用
-
 虚引等同于没有引用，拥有虚引用的对象可以在任何时候被垃圾回收器回收。
 
 弱引用的出现就是为了垃圾回收服务的。它引用一个对象，但是并不阻止该对象被回收。
@@ -209,9 +269,7 @@ ThreadLocal最佳实践
 
 核心思想是，如果被请求的共享资源空闲，将当前请求资源的线程设置为有效的工作线程，将共享资源设置为锁定状态；如果共享资源被占用，将暂时获取不到锁的线程加入到队列中, 需要一定的阻塞等待唤醒机制机制来保证锁分配。这个机制主要用的是CLH队列实现的**
 
-AQS是通过将每条请求共享资源的线程封装成一个节点来实现锁的分配。
-
-通过简单的几行代码就能实现同步功能，这就是AQS的强大之处。
+AQS是通过将每条请求共享资源的线程封装成一个节点来实现锁的分配。通过简单的几行代码就能实现同步功能，这就是AQS的强大之处。
 
 自定义同步器实现的相关方法也只是为了通过修改State字段来实现多线程的独占模式或者共享模式。自定义同步器需要实现以下方法（ReentrantLock需要实现的方法如下，并不是全部）：
 
@@ -233,7 +291,6 @@ ReentrantLock这类自定义同步器自己实现了获取锁和释放锁的方�
 白话：AQS是jdk提供的一个同步器，可以很方便的生成自定义同步器。AQS内部使用一个volatile的state来表示同步状态，通过一个FIFO队列来做多线程获取资源的排队操作，AQS通过CAS来做state变量的修改。实现AQS只要实现其中判断获取锁和释放锁的方法即可，AQS内部会去做队列入队出队等复杂逻辑处理。使用AQS实现的同步器有ReentrantLock，Semaphore，CountDownLatch。
 
 ### - CountDownLatch、Semaphore、CyclicBarrier含义及实现原理
-
 CountDownLatch   
 一个或多个线程等待其他线程完成一些列操作
 CountDownLatch是一个同步辅助类，当CountDownLatch类中的计数器减少为0之前所有调用await方法的线程都会被阻塞，如果计数器减少为0，则所有线程被唤醒继续运行。
@@ -253,6 +310,9 @@ CyclicBarrier 参与的线程职责是一样的。
 个人理解：
 1. CountDownLatch 是当前线程等着别人做好再开始做。像做饭一样，买好菜。
    CountDownLatch内部是AQS做的同步，共享模式，共享释放，只有减到0才能获得
+   countdownlatch
+   await的时候，判断当前state是否为0，为0可以获取共享锁，非0则加入阻塞。
+   countdown的时候，将state -1 ,  并判断是否减到0， 减到0就唤醒阻塞的线程。
 2. Semaphore 是多个线程去获取，有的话就有，没有就等着。 像买房摇号。
    Semaphore 内部是AQS做的同步，非0就可获得，0就不行了
 3. CyclicBarrier 是各个线程都达到某个预设点的时候， 可以执行一段逻辑，然后打开所有线程的限制。 像赛马.
@@ -279,28 +339,6 @@ void addListener(Runnable listener, Executor executor);
 
 CompletableFuture
 在JDK8中开始引入的，这个在一定程度上与ListenableFuture非常类似。比如说ListenableFuture的listener监听回调，在这个类中，相当于thenRun或者whneComplete操作原语
-
-https://blog.csdn.net/Androidlushangderen/article/details/80372711
-
-
-### - java异步编程，获取线程返回结果的方法#
-Thread的join()方法实现
-
-CountDownLatch实现
-
-ExecutorService.submit方法实现
-future.get()
-
-FutureTask
-futureTask.get()
-
-listenableFuture
-ListenableFuture和JDK原生Future最大的区别是前者做到了一个可以监听结果的Future
-void addListener(Runnable listener, Executor executor);
-
-CompletableFuture
-CompletableFuture.supplyAsync可以用来异步执行一个带返回值的任务，调用completableFuture.get()
-会阻塞当前线程，直到任务执行完毕，get方法才会返回。
 
 ## 线程池
 
@@ -347,8 +385,6 @@ DiscardPolicy(直接丢弃任务)
 DiscardOldestPolicy（丢弃队列里最老的任务，将当前这个任务继续提交给线程池）   
 CallerRunsPolicy（交给线程池调用所在的线程进行处理)  
 
-https://mp.weixin.qq.com/s?__biz=MzA5MTkxMDQ4MQ==&mid=2648933151&idx=1&sn=2020066b974b5f4c0823abd419e8adae&chksm=88621b21bf159237bdacfb47bd1a344f7123aabc25e3607e78d936dd554412edce5dd825003d&token=995072421&lang=zh_CN#rd
-
 如何自定义拒绝策略：实现RejectedExecutionHandler接口，实现rejectedExecution方法
 public interface RejectedExecutionHandler {
     void rejectedExecution(Runnable r, 
@@ -366,27 +402,3 @@ public interface RejectedExecutionHandler {
 系统负载： 一个进程或线程正在被cpu执行或等待被cpu执行，则系统负载+1， 单核cpu负载小于1表示cpu可以在线程不等待的情况下处理完
 
 IO密集：通常指网络IO
-
-
-### - 阻塞队列原理
-
-如果队列为空条件满足时，消费者一直等待，如果队列满条件满足时，生产者会一直等待，当条件不满足的时候，通过通知机制实现生产者和消费者间的通信。当消费者消费了一个队列中的元素后，会通知生产者当前队列可用。
-
-JDK通过condition实现的通知机制，condition底层通过unsafe类的park、unpark方法实现的线程的阻塞和解除阻塞
-
-### - 有哪些阻塞队列
-
-ArrayBlockingQueue
-ArrayBlockingQueue（有界队列）是一个用数组实现的有界阻塞队列，按FIFO排序量。
-
-LinkedBlockingQueue
-LinkedBlockingQueue（可设置容量队列）基于链表结构的阻塞队列，按FIFO排序任务，容量可以选择进行设置，不设置的话，将是一个无边界的阻塞队列，最大长度为Integer.MAX_VALUE，吞吐量通常要高于ArrayBlockingQuene；newFixedThreadPool线程池使用了这个队列
-
-DelayQueue
-DelayQueue（延迟队列）是一个任务定时周期的延迟执行的队列。根据指定的执行时间从小到大排序，否则根据插入到队列的先后排序。newScheduledThreadPool线程池使用了这个队列。
-
-PriorityBlockingQueue
-PriorityBlockingQueue（优先级队列）是具有优先级的无界阻塞队列；
-
-SynchronousQueue
-SynchronousQueue（同步队列）一个不存储元素的阻塞队列，每个插入操作必须等到另一个线程调用移除操作，否则插入操作一直处于阻塞状态，吞吐量通常要高于LinkedBlockingQuene，newCachedThreadPool线程池使用了这个队列。

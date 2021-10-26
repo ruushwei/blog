@@ -252,26 +252,6 @@ public void flatten(TreeNode root) {
 }
 ```
 
-先序遍历
-```java
-public static void preOrderStack(TreeNode root) {
-    if (root == null) { 
-        return;
-    }
-    Stack<TreeNode> s = new Stack<TreeNode>();
-    while (root != null || !s.isEmpty()) {
-        while (root != null) {
-            System.out.println(root.val);
-            s.push(root);
-            root = root.left;
-        }
-        root = s.pop();
-        root = root.right;
-    }
-}
-```
-
-
 #### 236. 二叉树的最近公共祖先
 
 给定一个二叉树, 找到该树中两个指定节点的最近公共祖先。
@@ -302,5 +282,78 @@ public TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
         q = son2ParentMap.get(q);
     }
     return q;
+}
+```
+
+#### 105. 从前序与中序遍历序列构造二叉树
+
+```java
+public TreeNode buildTree(int[] preorder, int[] inorder) {
+    return buildTreeHelper(preorder, 0, preorder.length, inorder, 0, inorder.length);
+}
+
+private TreeNode buildTreeHelper(int[] preorder, int p_start, int p_end, int[] inorder, int i_start, int i_end) {
+    // preorder 为空，直接返回 null
+    if (p_start == p_end) {
+        return null;
+    }
+    int root_val = preorder[p_start];
+    TreeNode root = new TreeNode(root_val);
+    //在中序遍历中找到根节点的位置
+    int i_root_index = 0;
+    for (int i = i_start; i < i_end; i++) {
+        if (root_val == inorder[i]) {
+            i_root_index = i;
+            break;
+        }
+    }
+    int leftNum = i_root_index - i_start;
+    //递归的构造左子树
+    root.left = buildTreeHelper(preorder, p_start + 1, p_start + leftNum + 1, inorder, i_start, i_root_index);
+    //递归的构造右子树
+    root.right = buildTreeHelper(preorder, p_start + leftNum + 1, p_end, inorder, i_root_index + 1, i_end);
+    return root;
+}
+```
+
+#### 101. 对称二叉树
+
+```java
+class Solution {
+    public boolean isSymmetric(TreeNode root) {
+        return check(root, root);
+    }
+
+    public boolean check(TreeNode p, TreeNode q) {
+        if (p == null && q == null) {
+            return true;
+        }
+        if (p == null || q == null) {
+            return false;
+        }
+        return p.val == q.val && check(p.left, q.right) && check(p.right, q.left);
+    }
+}
+```
+
+#### 101. 平衡二叉树
+
+```java
+class Solution {
+    public boolean isBalanced(TreeNode root) {
+        if (root == null) {
+            return true;
+        } else {
+            return Math.abs(height(root.left) - height(root.right)) <= 1 && isBalanced(root.left) && isBalanced(root.right);
+        }
+    }
+
+    public int height(TreeNode root) {
+        if (root == null) {
+            return 0;
+        } else {
+            return Math.max(height(root.left), height(root.right)) + 1;
+        }
+    }
 }
 ```

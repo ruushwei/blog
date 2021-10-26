@@ -83,10 +83,140 @@ Java虚拟机类加载过程主要分为五个阶段：加载、验证、准备�
 
 ### - spring中的设计模式
 
+#### 简单工厂模式
+简单工厂模式的实质是由一个工厂类根据传入的参数，动态决定应该创建哪一个产品类。 
+spring中的BeanFactory就是简单工厂模式的体现，根据传入一个唯一的标识来获得bean对象，但是否是在传入参数后创建还是传入参数前创建这个要根据具体情况来定。
+
+#### 工厂方法模式
+工厂方法将创建产品的代码与实际使用产品的代码分离， 从而能在不影响其他代码的情况下扩展产品创建部分代码。
+例如， 如果需要向应用中添加一种新产品， 你只需要开发新的创建者子类， 然后重写其工厂方法即可。
+
+一般情况下,应用程序有自己的工厂对象来创建bean.如果将应用程序自己的工厂对象交给Spring管理, 那么Spring管理的就不是普通的bean,而是工厂Bean。
+理解：通过扩展工厂子类的方式，调用其工厂方法创建新对象。
+
+#### 单例模式
+保证一个类仅有一个实例，并提供一个访问它的全局访问点。 
+spring中的单例模式完成了后半句话，即提供了全局的访问点BeanFactory。但没有从构造器级别去控制单例，这是因为spring管理的是是任意的java对象。 
+
+Spring下默认的bean均为singleton，可以通过singleton=“true|false” 或者 scope="?"来指定。
+
+#### 代理设计模式 
+Spring AOP 功能的实现。
+
+#### 适配器模式
+springaop中的advice，需要适配成 MethodInterceptor 接口，才能组成一条拦截器链，做依次的织入。
+不同的Advice需要通过 不同适配器（XXXAdviceInterceptor） 适配成一个个 MethodInterceptor。使用适配器模式，持有advice实例，实现MethodInterceptor 接口。
+
+我们知道 Spring AOP 的实现是基于代理模式，但是 Spring AOP 的增强或通知(Advice)使用到了适配器模式，与之相关的接口是AdvisorAdapter 。Advice 常用的类型有：BeforeAdvice（目标方法调用前,前置通知）、AfterAdvice（目标方法调用后,后置通知）、AfterReturningAdvice(目标方法执行结束后，return之前)等等。
+每个类型Advice（通知）都有对应的拦截器:MethodBeforeAdviceInterceptor、AfterReturningAdviceAdapter、AfterReturningAdviceInterceptor。
+Spring预定义的通知要通过对应的适配器，适配成 MethodInterceptor接口(方法拦截器)类型的对象（如：MethodBeforeAdviceInterceptor 负责适配 MethodBeforeAdvice）。
+
+参考文档：https://www.jianshu.com/p/57d3d1beeb62
+
+#### 模板方法模式
+JDBCTemplate使用了模板方法 + 回调模式。把直接执行statment的操作延迟到子类实现，通过回调函数的方式传递进来，父类实现对连接和异常的处理等操作。
+execute中接收一个 StatementCallback 的回调函数，子类只要传递自己处理statment获取结果的回调函数即可，不需要再写过多的重复代码。
+
+```java
+@FunctionalInterface
+public interface StatementCallback<T> {
+   @Nullable
+   T doInStatement(Statement var1) throws SQLException, DataAccessException;
+}
+```
+
+execute实现（调用回调函数StatementCallback#doInStatement）
+```java
+@Nullable
+public <T> T execute(StatementCallback<T> action) throws DataAccessException {
+   //参数检查
+   Assert.notNull(action, "Callback object must not be null");
+   //获取连接
+   Connection con = DataSourceUtils.getConnection(this.obtainDataSource());
+   Statement stmt = null;
+   Object var11;
+   try {
+      //创建一个Statement
+      stmt = con.createStatement();
+      //设置查询超时时间，最大行等参数（就是一开始那些成员变量）
+      this.applyStatementSettings(stmt);
+      //执行回调方法获取结果集
+      T result = action.doInStatement(stmt);
+      //处理警告
+      this.handleWarnings(stmt);
+      var11 = result;
+   } catch (SQLException var9) {
+      //出现错误优雅退出
+      String sql = getSql(action);
+      JdbcUtils.closeStatement(stmt);
+      stmt = null;
+      DataSourceUtils.releaseConnection(con, this.getDataSource());
+      con = null;
+      throw this.translateException("StatementCallback", sql, var9);
+   } finally {
+      JdbcUtils.closeStatement(stmt);
+      DataSourceUtils.releaseConnection(con, this.getDataSource());
+   }
+   return var11;
+}
+```
+
+update方法详解（使用lambda函数传递更新的实现操作）
+
+```java
+protected int update(PreparedStatementCreator psc, @Nullable PreparedStatementSetter pss) throws DataAccessException {
+   this.logger.debug("Executing prepared SQL update");
+   return updateCount((Integer)this.execute(psc, (ps) -> {
+      Integer var4;
+      try {
+            if (pss != null) {
+               pss.setValues(ps);
+            }
+            int rows = ps.executeUpdate();
+            if (this.logger.isTraceEnabled()) {
+               this.logger.trace("SQL update affected " + rows + " rows");
+            }
+            var4 = rows;
+      } finally {
+            if (pss instanceof ParameterDisposer) {
+               ((ParameterDisposer)pss).cleanupParameters();
+            }
+      }
+      return var4;
+   }));
+   }
+```
+
+JDBCTemplate使用了很多回调。为什么要用回调（Callback)?
+如果父类有多个抽象方法，子类需要全部实现这样特别麻烦，而有时候某个子类只需要定制父类中的某一个方法该怎么办呢？这个时候就要用到Callback回调了就可以完美解决这个问题，可以发现JDBCTemplate并没有完全拘泥于模板方法，非常灵活。我们在实际开发中也可以借鉴这种方法。
+
+参考文档：https://juejin.cn/post/6844903847966703624#heading-5
 
 
+### - spring aspect advice pointcut理解
+1、adivisor是一种特殊的Aspect，Advisor代表spring中的Aspect 
+2、区别：advisor只持有一个Pointcut和一个advice，而aspect可以多个pointcut和多个advice
 
-### - springboot的启动原理
+- 方/切 面（Aspect）：一个关注点的模块化，这个关注点实现可能另外横切多个对象。事务管理是J2EE应用中一个很好的横切关注点例子。方面用Spring的Advisor或拦截器实现。 
+- 连接点/织入点（Joinpoint）：程序执行过程中明确的点，如方法的调用或特定的异常被抛出。 
+- 通知（Advice）：在特定的连接点，AOP框架执行的动作。各种类型的通知包括“around”、“before”和“throws”通知。 
+- 切入点（Pointcut）：指定一个通知将被引发的一系列连接点的集合。AOP框架必须允许开发者指定切入点，例如，使用正则表达式。
 
+#### Springboot启动简要流程
+1. SpringApplication 初始化，收集所有ApplicationContextInitializer和ApplicationListener。
+2. SpringApplication run
+   调用started事件
+   创建并准备Environment（PropertySource、Profile）
+   调用environmentPrepared事件
+   创建ApplicationContext，遍历调用ApplicationContextInitializer的initialize方法
+   调用contextPrepared 事件
+   创建并配置BeanDefinitionLoader
+   调用contextLoaded 事件
+   applicationContext的refresh()方法, 完成ioc容器初始化
+   调用started事件
+   callRunners（ApplicationRunners，CommandLineRunners）
+   调用running事件
 
-
+#### Springboot启动总结
+Springboot的启动，主要创建了配置环境(environment)、事件监听(listeners)、应用上下文(applicationContext)，并基于以上条件，在容器中开始实例化我们需要的Bean
+自动装配核心：@EnableAutoConfiguration中的AutoConfigurationImportSelector中的SpringFactoriesLoader 提供一种配置查找的功能支持，即根据@EnableAutoConfiguration的完整类名org.springframework.boot.autoconfigure.EnableAutoConfiguration作为查找的Key，获取对应的一组@Configuration类。并在后续加载到ioc容器。

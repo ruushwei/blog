@@ -24,6 +24,8 @@ int, intset: 数字集合
 	一般做一些复杂的计数功能的缓存
 sds
 
+string类型控制在10KB以内，hash、list、set、zset元素个数不要超过5000
+
 **hash**
 
 value存放的是结构化的对象
@@ -76,6 +78,9 @@ Redis 的有序集合使用 ziplist 或者 skiplist 实现的。
 定期删除，redis默认每个100ms检查，是否有过期的key,有过期key则删除。需要说明的是，redis不是每个100ms将所有的key检查一次，而是随机抽取进行检查(如果每隔100ms,全部key进行检查，redis岂不是卡死)。因此，如果只采用定期删除策略，会导致很多key到时间没有删除
 
 于是，惰性删除派上用场。也就是说在你获取某个key的时候，redis会检查一下，这个key如果设置了过期时间那么是否过期了？如果过期了此时就会删除。
+
+### - 跳表
+https://blog.csdn.net/qq_34412579/article/details/101731935
 
 ### - redis的内存淘汰机制
 
