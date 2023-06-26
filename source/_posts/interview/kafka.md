@@ -30,7 +30,7 @@ date: 2021-08-01 11:10:43
 ### - kafka如何保证消息可靠性（不丢消息）
 
 1. 多副本写入 + 数据持久化，通过后台线程将消息持久化到磁盘
-2. 生产者ack机制，可设置写入副本情况，ack=0 可不写入就成功，ack=1 写入leader副本，ack=all 写入全部副本
+2. 可设置写入副本情生产者ack机制，况，ack=0 可不写入就成功，ack=1 写入leader副本，ack=all 写入全部副本
 3. 生产者重试机制，出现网络问题可自动重试，可设置重试间隔
 4. 消费者使用手动提交，可保证消费一次
 
@@ -41,17 +41,12 @@ Kafka在0.8版本之前是没有HA机制来确保高可用的，当某一个brok
 0.8之后提供了副本机制，副本机制会将 一个broker下某个topic的一个partition放入到另外一个broker里，这个备份的分区和原分区都叫做副本（replica）。在所有的副本里，只能有一个leader，其余的副本都作为follower，同一时间内只有leader负责读写，follower不起任何作用。这样做的原因是为了确保消费者单调读 且 确保能立即读取写入的信息（Read-your-writes）。其他所有的follower会异步的拉去leader消息，拉的快的会进入ISR里，拉的慢得超过replica.lag.time.max.ms 配置的超时值的，会被踢进OSR里，这个过程是动态的，如果一个follower开始没跟上leader的消息写入速度，被踢出了ISR，等到跟上后又会重新进入ISR。当leader挂掉之后，为了保证高可用性，从ISR中获取一个副本，升格为leader。如果ISR全挂了，有两种策略，一是等待ISR第一个恢复的副本，二是开启unclean从OSR中选择一个副本作为leader。为保证高可用 可以选择第二种牺牲一致性的方式。
 
 
-### - kafka整体架构
-
-![](https://ipic-1252327316.cos.ap-beijing.myqcloud.com/image/kafka/kafka%E6%9E%B6%E6%9E%84.jpg)
-
 ### - kafka服务端架构
 服务端是reactor模式，**selector + threadPool**   
 acceptor里有个selector, 每个processor中有一个selector，都是NIO,IO多路复用     
 processor会通过注册/取消 OP_READ _ 事件，保证每个连接上只有一个请求和一个对应的响应，从而实现每个连接请求的顺序性。  
 
-![](https://ipic-1252327316.cos.ap-beijing.myqcloud.com/image/kafka/kafka%E6%9C%8D%E5%8A%A1%E7%AB%AF%E6%9E%B6%E6%9E%84.jpeg)
-
+kafka是自身实现的nio框架，rocketmq是使用的netty
 
 ### - kafka 基本特性
 1. 高吞吐量、低延迟
@@ -82,7 +77,19 @@ kafka集群支持热扩展
          分区重分配
 3. Broker选举：第一个启动的broker会在zk中创建临时节点/controller，利用zk的强一致性，成为唯一的控制器节点，而其余的broker会监听该节点。随后由controller决定每个broker中副本的master，每当broker挂掉，controller会检测其副本，重新决定出master。当控制器broker断开时，/controller临时节点会删除，其余连接的broker将收到事件通知，抢占式注册为新的controller。
 
+#### - kafka怎么记录消费offset：
+
+kafka在消费的时候，会将消费的offset保存在kafka的特定topic中（_consumer_offsets）。当消费者需要恢复消费进度，从该内部topic读取上次提交的偏移量，从而恢复进度，继续消费。
+
+rocketmq中，每个消费者组会在broker中创建一个消费进度管理器，用于保存每个消费者消费每个messagequeue的消费进度。
+
 #### - rocketmq & kafka
+rocketmq功能性和可靠性更强一些。kafka性能吞吐更强一些。
+
+- 数据存储形式
+kafka是存partition维度的数据顺序写入，每个分区是一个队列，分segment存储。
+rocketmq是broker不分topic的所有数据顺序写入commitlog, 每个消费者组对应一个consumerqueue, cq里有消费的offset标识，每个cq里有多个messagequeue 类似kafka的partition，用于提升顺序消费的并发性。
+这里明显rocketmq在读取的时候可能导致对磁盘的随机读，影响读取性能，但使用了缓存、批量读取、内存等提高读取性能。
 - 性能
 Kafka单机写入 TPS 号称在百万条/秒；
 RocketMQ 大约在10万条/秒。
@@ -118,5 +125,3 @@ RocketMQ支持根据Message Id查询消息，也支持根据消息内容查询�
 - 消息回溯
 Kafka理论上可以按照Offset来回溯消息
 RocketMQ支持按照时间来回溯消息，精度毫秒，例如从一天之前的某时某分某秒开始重新消费消息.
-
-rocketmq功能性和可靠性更强一些。

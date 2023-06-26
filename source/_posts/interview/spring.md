@@ -202,21 +202,12 @@ JDBCTemplate使用了很多回调。为什么要用回调（Callback)?
 - 通知（Advice）：在特定的连接点，AOP框架执行的动作。各种类型的通知包括“around”、“before”和“throws”通知。 
 - 切入点（Pointcut）：指定一个通知将被引发的一系列连接点的集合。AOP框架必须允许开发者指定切入点，例如，使用正则表达式。
 
-#### Springboot启动简要流程
-1. SpringApplication 初始化，收集所有ApplicationContextInitializer和ApplicationListener。
-2. SpringApplication run
-   调用started事件
-   创建并准备Environment（PropertySource、Profile）
-   调用environmentPrepared事件
-   创建ApplicationContext，遍历调用ApplicationContextInitializer的initialize方法
-   调用contextPrepared 事件
-   创建并配置BeanDefinitionLoader
-   调用contextLoaded 事件
-   applicationContext的refresh()方法, 完成ioc容器初始化
-   调用started事件
-   callRunners（ApplicationRunners，CommandLineRunners）
-   调用running事件
+#### Springboot启动原理
+springboot在启动时除了spring context容器启动的流程，还加入了通过spi实现的根据依赖自动装配的机制。
+springboot容器启动的流程，先初始化事件监听器，加载环境信息，创建applicationContext容器，执行applicationInitializer的initialize方法，在容器refresh时，会通过spi机制获取到所有的autoConfiguration类（解析spring.factotries文件）并加载配置类中相关bean注入context容器，完成自动装配。
 
-#### Springboot启动总结
-Springboot的启动，主要创建了配置环境(environment)、事件监听(listeners)、应用上下文(applicationContext)，并基于以上条件，在容器中开始实例化我们需要的Bean
-自动装配核心：@EnableAutoConfiguration中的AutoConfigurationImportSelector中的SpringFactoriesLoader 提供一种配置查找的功能支持，即根据@EnableAutoConfiguration的完整类名org.springframework.boot.autoconfigure.EnableAutoConfiguration作为查找的Key，获取对应的一组@Configuration类。并在后续加载到ioc容器。
+#### Springioc解决循环依赖问题
+使用中间缓存，使用二级缓存earlySingletonObjects，三级缓存singletonFactories一起解决的循环依赖问题。
+earlySingletonObjects就是一个临时存放初始bean的缓存。
+singletonFactories是会在获取依赖的A时，调用一个wrapIfNessasory来获得一个aop后的A, 从而解决循环依赖aop bean的问题。
+注：springioc只能解决set注入的循环依赖问题，无法解决构造方法注入的循环依赖问题，因为A在构造时依赖B，B在构造获取A的时候，A都还没有创建出来，没有能放到一个中间缓存解决循环依赖的机会。
