@@ -17,7 +17,7 @@ date: 2019-09-09 11:10:43
 
 [redis](/2021/07/31/interview/redis "redis")
 
-[kafka](/2021/08/01/interview/kafka "kafka")
+[mq](/2021/08/01/interview/mq "mq")
 
 [design](/2021/07/29/interview/design "design")
 
